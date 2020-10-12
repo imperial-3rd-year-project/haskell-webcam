@@ -1,0 +1,18 @@
+stages: 
+  - build
+  - test
+
+default:
+  image: haskell:8.8.4
+  before_script:
+    - cabal update
+
+build:
+  stage: build
+  script: cabal build
+
+test: 
+  stage: test
+  script: cabal test
+
+
