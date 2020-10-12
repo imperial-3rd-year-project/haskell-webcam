@@ -17,7 +17,7 @@ maintainer:          rp218@ic.ac.uk
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
 
-library:
+library
   hs-source-dirs:
     src
   ghc-options: -Wall
