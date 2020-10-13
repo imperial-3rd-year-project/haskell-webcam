@@ -1,9 +1,12 @@
+{-# LANGUAGE GADTs #-}
+
 module DeviceSpec (spec) where
 
 import Test.Hspec
 import Test.QuickCheck
 
-import Device
+import Graphics.Capture.Class
+import Graphics.Capture.V4L2.Device
 
 spec :: Spec
 spec = do 
