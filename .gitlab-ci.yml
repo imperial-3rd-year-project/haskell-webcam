@@ -13,6 +13,4 @@ build:
 
 test: 
   stage: test
-  script: cabal test
-
-
+  script: cabal test --test-show-details=streaming --test-option=--color
