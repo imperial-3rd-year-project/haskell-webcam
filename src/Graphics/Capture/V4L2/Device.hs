@@ -7,12 +7,12 @@ import Data.List (isPrefixOf)
 import Graphics.Capture.Class
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
-import System.Posix.Internals (FD)
+import System.Posix.Types (Fd)
 
 data Device a where
   Unopened  :: FilePath       -> Device U
-  Opened    :: FD -> FilePath -> Device O
-  Streaming :: FD -> FilePath -> Device S
+  Opened    :: Fd -> FilePath -> Device O
+  Streaming :: Fd -> FilePath -> Device S
 
 deriving instance Show (Device a)
 
@@ -33,3 +33,5 @@ instance VideoCapture Device where
     where
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
+
+
