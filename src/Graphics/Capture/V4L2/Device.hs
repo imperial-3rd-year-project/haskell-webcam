@@ -38,3 +38,8 @@ instance VideoCapture Device where
   openDevice (Unopened path) = do
     v4l2Dev <- V4L2.openDevice path
     return $ Opened v4l2Dev path
+ 
+  closeDevice (Opened v4l2Dev path) = do
+    V4L2.closeDevice v4l2Dev
+    return $ Unopened path
+       
