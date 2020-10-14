@@ -29,7 +29,8 @@ library
     , vector
     , directory
     , filepath
-    , v4l2
+    , bindings-libv4l2
+    , bindings-posix
   default-language:    Haskell2010
 
 executable haskell-webcam

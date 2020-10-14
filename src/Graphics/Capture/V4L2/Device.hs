@@ -2,18 +2,21 @@
 
 module Graphics.Capture.V4L2.Device (Device (..)) where
 
+import Bindings.LibV4L2 (c'v4l2_open, c'v4l2_close)
+import Bindings.Posix.Fcntl (c'O_RDWR)
 import Control.Monad (filterM)
 import Data.List (isPrefixOf)
+import Foreign.C.Error (throwErrnoIfMinus1)
+import Foreign.C.String (withCString)
 import Graphics.Capture.Class
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
-
-import qualified Graphics.V4L2.Device as V4L2
+import System.Posix.Types (Fd)
 
 data Device a where
   Unopened  :: FilePath       -> Device U
-  Opened    :: V4L2.Device -> FilePath -> Device O
-  Streaming :: V4L2.Device -> FilePath -> Device S
+  Opened    :: Fd -> FilePath -> Device O
+  Streaming :: Fd -> FilePath -> Device S
 
 deriving instance Show (Device a)
 
@@ -35,11 +38,14 @@ instance VideoCapture Device where
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
 
-  openDevice (Unopened path) = do
-    v4l2Dev <- V4L2.openDevice path
-    return $ Opened v4l2Dev path
- 
-  closeDevice (Opened v4l2Dev path) = do
-    V4L2.closeDevice v4l2Dev
-    return $ Unopened path
-       
+  openDevice (Unopened path) = withCString path $ \p -> do
+    fd <- throwErrnoIfMinus1 errorString (c'v4l2_open p c'O_RDWR 0)
+    return $ Opened (fromIntegral fd) path
+    where  
+      errorString = "Graphics.Capture.V4L2.Device.openDevice"
+
+  closeDevice (Opened fd path) = 
+   throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fd)) >>
+   (return $ Unopened path)
+     where
+       errorString = "Graphics.Capture.V4L2.Device.closeDevice"
