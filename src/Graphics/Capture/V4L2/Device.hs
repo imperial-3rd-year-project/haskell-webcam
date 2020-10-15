@@ -3,8 +3,9 @@
 module Graphics.Capture.V4L2.Device (Device (..)) where
 
 import Bindings.LibV4L2 (c'v4l2_open, c'v4l2_close)
-import Bindings.Posix.Fcntl (c'O_RDWR)
+import Bindings.Posix.Fcntl (c'O_RDWR, c'O_NONBLOCK)
 import Control.Monad (filterM)
+import Data.Bits ((.|.))
 import Data.List (isPrefixOf)
 import Foreign.C.Error (throwErrnoIfMinus1)
 import Foreign.C.String (withCString)
@@ -39,7 +40,7 @@ instance VideoCapture Device where
       videoDevPrefix  = "video"
 
   openDevice (Unopened path) = withCString path $ \p -> do
-    fd <- throwErrnoIfMinus1 errorString (c'v4l2_open p c'O_RDWR 0)
+    fd <- throwErrnoIfMinus1 errorString (c'v4l2_open p (c'O_RDWR .|. c'O_NONBLOCK) 0)
     return $ Opened (fromIntegral fd) path
     where  
       errorString = "Graphics.Capture.V4L2.Device.openDevice"
