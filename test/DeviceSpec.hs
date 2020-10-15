@@ -20,7 +20,7 @@ spec = do
        \x -> deviceDescription (Unopened x) == (x :: String)
 
     it "returns the second constructor argument for the opened device" $ property $
-       \x y -> deviceDescription (Opened x y) == (y :: String)
+        \x y -> deviceDescription (Opened x y) == (y :: String)
 
    -- TODO Find a way to use ThreadId with its constructor
    -- it "returns the second constructor argument for the streaming device" $ property $

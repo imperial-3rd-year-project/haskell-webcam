@@ -4,16 +4,19 @@
 
 module Graphics.Capture.V4L2.Device (Device (..)) where
 
-import Bindings.Linux.VideoDev2
 import Bindings.LibV4L2
+import Bindings.Linux.VideoDev2
+import Bindings.Posix.Fcntl (c'O_RDWR, c'O_NONBLOCK)
 
 import Control.Concurrent (threadWaitRead, forkIO, ThreadId)
 import Control.Monad (filterM, forM_, forever)
 import qualified Data.HashTable.IO as H
+import Data.Bits ((.|.))
 import Data.List (isPrefixOf)
 import Data.Vector.Storable (Vector, unsafeFromForeignPtr0)
 import Data.Word (Word8, Word32)
-import Foreign.C.Error (throwErrnoIfMinus1RetryMayBlock_)
+import Foreign.C.Error (throwErrnoIfMinus1, throwErrnoIfMinus1RetryMayBlock_)
+import Foreign.C.String (withCString)
 import Foreign.C.Types (CULong)
 import Foreign.ForeignPtr (ForeignPtr, mallocForeignPtrBytes)
 import Foreign.ForeignPtr.Unsafe (unsafeForeignPtrToPtr)
@@ -21,6 +24,7 @@ import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fillBytes)
 import Foreign.Ptr (Ptr, ptrToIntPtr, intPtrToPtr, IntPtr (..))
 import Foreign.Storable
+import GHC.Conc (closeFdWith)
 import Graphics.Capture.Class
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
@@ -50,6 +54,21 @@ instance VideoCapture Device where
     where
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
+
+  openDevice (Unopened path) = withCString path $ \p -> do
+    fd <- throwErrnoIfMinus1 errorString (c'v4l2_open p (c'O_RDWR .|. c'O_NONBLOCK) 0)
+    return $ Opened (fromIntegral fd) path
+    where  
+      errorString = "Graphics.Capture.V4L2.Device.openDevice"
+
+
+  closeDevice (Opened fd path) = 
+    closeFdWith closeFn fd >> (return $ Unopened path)
+    where
+       errorString = "Graphics.Capture.V4L2.Device.closeDevice"
+       closeFn :: Fd -> IO ()
+       closeFn fileDesc = 
+         throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) >> return ()
 
   startCapture = startV4L2Capture
 
