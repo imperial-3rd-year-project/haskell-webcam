@@ -9,6 +9,7 @@ import Data.Bits ((.|.))
 import Data.List (isPrefixOf)
 import Foreign.C.Error (throwErrnoIfMinus1)
 import Foreign.C.String (withCString)
+import GHC.Conc (closeFdWith)
 import Graphics.Capture.Class
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
@@ -45,8 +46,11 @@ instance VideoCapture Device where
     where  
       errorString = "Graphics.Capture.V4L2.Device.openDevice"
 
+
   closeDevice (Opened fd path) = 
-   throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fd)) >>
-   (return $ Unopened path)
-     where
+    closeFdWith closeFn fd >> (return $ Unopened path)
+    where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
+       closeFn :: Fd -> IO ()
+       closeFn fileDesc = 
+         throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) >> return ()
