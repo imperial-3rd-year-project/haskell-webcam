@@ -3,7 +3,7 @@ stages:
   - test
 
 default:
-  image: haskell:8.10.2
+  image: rp218/haskell_v4l2:latest
   before_script:
     - cabal update
 
