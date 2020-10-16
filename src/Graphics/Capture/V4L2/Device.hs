@@ -94,8 +94,6 @@ startV4L2Capture (Opened fd path) f = do
 
   buffers <- queryBuffers
 
-  -- buffers :: H.BasicHashTable (Ptr Word8) (ForeignPtr Word8) <- H.new
-
   -- We need to keep reference to enqueued buffers so they do not get deleted by the garbage collector
   enqueueBuffersMMAP numBuffersAllocated
 
@@ -117,15 +115,19 @@ startV4L2Capture (Opened fd path) f = do
       -- v4l2_ioctl fd c'VIDIOC_G_FMT fmtPtr
       putStrLn "Format retrived"
       format <- c'v4l2_format'fmt <$> peek fmtPtr
-      let pixelFormat = c'v4l2_format_u'pix format
+
+      let pixelFormat = (c'v4l2_format_u'pix format) { c'v4l2_pix_format'field       = c'V4L2_FIELD_INTERLACED
+                                                     , c'v4l2_pix_format'pixelformat = c'V4L2_PIX_FMT_RGB24
+                                                     , c'v4l2_pix_format'width = 640
+                                                     , c'v4l2_pix_format'height = 480
+                                                     }
+
       poke fmtPtr $ C'v4l2_format { c'v4l2_format'type = c'V4L2_BUF_TYPE_VIDEO_CAPTURE
-                                  , c'v4l2_format'fmt  = format { c'v4l2_format_u'pix = pixelFormat { c'v4l2_pix_format'field       = c'V4L2_FIELD_INTERLACED
-                                                                                                    , c'v4l2_pix_format'pixelformat = c'V4L2_PIX_FMT_RGB24
-                                                                                                    , c'v4l2_pix_format'width = 640
-                                                                                                    , c'v4l2_pix_format'height = 480
-                                                                                                    }
-                                                                }
+                                  , c'v4l2_format'fmt  = format { c'v4l2_format_u'pix = pixelFormat }
                                   }
+
+      pokeByteOff fmtPtr 8 pixelFormat
+
       v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: S_FMT"
       filledFmt <- c'v4l2_format'fmt <$> peek fmtPtr
       let filledPixelFormat = c'v4l2_format_u'pix filledFmt
