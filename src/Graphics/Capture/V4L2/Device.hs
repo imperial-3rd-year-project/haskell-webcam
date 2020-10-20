@@ -9,15 +9,16 @@ import Bindings.Linux.VideoDev2
 import Bindings.Posix.Sys.Mman
 import Bindings.Posix.Fcntl (c'O_RDWR, c'O_NONBLOCK)
 
-import Control.Concurrent (threadWaitRead, forkIO, ThreadId)
-import Control.Monad (filterM, forM, forM_, forever)
+import Control.Concurrent (threadWaitRead, forkIO, forkFinally, killThread, ThreadId)
+import Control.Monad (filterM, forM, forM_, forever, void)
 import Data.Bits ((.|.))
+import Data.Int (Int64)
 import Data.List (isPrefixOf)
 import Data.Vector.Storable (Vector, unsafeFromForeignPtr0)
 import Data.Word (Word8, Word32)
 import Foreign.C.Error (throwErrnoIfMinus1, throwErrnoIfMinus1RetryMayBlock_)
 import Foreign.C.String (withCString)
-import Foreign.C.Types (CULong)
+import Foreign.C.Types (CULong, CSize)
 import Foreign.ForeignPtr (mallocForeignPtrBytes, withForeignPtr)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (copyBytes, fillBytes)
@@ -35,6 +36,8 @@ data Device a where
   Streaming :: Fd -> FilePath -> ThreadId -> Device S
 
 deriving instance Show (Device a)
+
+type Buffer = (Ptr Word8, CSize)
 
 instance VideoCapture Device where
   deviceDescription (Unopened path)    = path
@@ -70,6 +73,7 @@ instance VideoCapture Device where
          throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) >> return ()
 
   startCapture = startV4L2Capture
+  stopCapture  = stopV4L2Capture
 
 
 v4l2_ioctl :: Fd -> CULong -> Ptr a -> String -> IO ()
@@ -79,7 +83,9 @@ v4l2_ioctl fd@(Fd fd') req p err = putStrLn ("ioctl :" ++ err) >> throwErrnoIfMi
     onBlock = threadWaitRead fd
 
 startV4L2Capture :: Device O -> (Vector Word8 -> IO ()) -> IO (Device S)
-startV4L2Capture (Opened fd path) f = do
+startV4L2Capture (Opened fd path) f = 
+  let numBuffers = 2
+   in do
 
   putStrLn "Setting formats"
 
@@ -88,18 +94,19 @@ startV4L2Capture (Opened fd path) f = do
   putStrLn $ "Buffer size: " ++ show bufferSize
 
 
-  numBuffersAllocated <- reqBuffers
+  numBuffersAllocated <- reqBuffers numBuffers
 
   putStrLn $ "Buffers requested; allocated " ++ show numBuffersAllocated
 
-  buffers <- queryBuffers
+  buffers <- createBuffers numBuffers
 
   -- We need to keep reference to enqueued buffers so they do not get deleted by the garbage collector
   enqueueBuffersMMAP numBuffersAllocated
 
   putStrLn "Start capture"
 
-  streamThread <- forkIO $ do
+  -- Thread turns off stream itself when terminates
+  streamThread <- flip forkFinally (const (streamOff buffers)) $ do
     alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
       poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
       v4l2_ioctl fd c'VIDIOC_STREAMON typePtr "Graphics.Capture.V4L2.Device.startV4L2Capture: STREAMON"
@@ -107,8 +114,6 @@ startV4L2Capture (Opened fd path) f = do
 
   return $ Streaming fd path streamThread
   where
-    numBuffers = 2
-
     setFormat :: IO Word32
     setFormat = alloca $ \(fmtPtr :: Ptr C'v4l2_format) -> do
       fillBytes fmtPtr 0 (sizeOf (undefined :: C'v4l2_format))
@@ -133,11 +138,11 @@ startV4L2Capture (Opened fd path) f = do
       let filledPixelFormat = c'v4l2_format_u'pix filledFmt
       return $ c'v4l2_pix_format'sizeimage filledPixelFormat
 
-    reqBuffers :: IO Word32
-    reqBuffers = alloca $ \(reqPtr :: Ptr C'v4l2_requestbuffers) -> do
+    reqBuffers :: Word32 -> IO Word32
+    reqBuffers buffersRequested = alloca $ \(reqPtr :: Ptr C'v4l2_requestbuffers) -> do
       fillBytes reqPtr 0 (sizeOf (undefined :: C'v4l2_requestbuffers))
       req <- peek reqPtr
-      poke reqPtr $ req { c'v4l2_requestbuffers'count    = numBuffers
+      poke reqPtr $ req { c'v4l2_requestbuffers'count    = buffersRequested
                         , c'v4l2_requestbuffers'type     = c'V4L2_BUF_TYPE_VIDEO_CAPTURE
                         , c'v4l2_requestbuffers'memory   = c'V4L2_MEMORY_MMAP
                         }
@@ -149,8 +154,8 @@ startV4L2Capture (Opened fd path) f = do
     mkPtr :: forall a b. Storable a => (Ptr a -> IO b) -> IO b
     mkPtr g = alloca $ \ptr -> fillBytes ptr 0 (sizeOf (undefined :: a)) >> g ptr
 
-    queryBuffers :: IO [(Ptr Word8, Word32)]
-    queryBuffers = forM [0..numBuffers - 1] $ \i -> mkPtr $ \(v4BufPtr :: Ptr C'v4l2_buffer) -> do 
+    createBuffers :: Word32 -> IO [Buffer]
+    createBuffers buffersCount = forM [0..buffersCount - 1] $ \i -> mkPtr $ \(v4BufPtr :: Ptr C'v4l2_buffer) -> do 
       buffer <- peek v4BufPtr
       poke v4BufPtr buffer { c'v4l2_buffer'type = c'V4L2_BUF_TYPE_VIDEO_CAPTURE
                            , c'v4l2_buffer'memory = c'V4L2_MEMORY_MMAP
@@ -160,11 +165,11 @@ startV4L2Capture (Opened fd path) f = do
 
       filledBuffer <- peek v4BufPtr
 
-      let bufferLength = c'v4l2_buffer'length filledBuffer
-          bufferOffset = c'v4l2_buffer_u'offset . c'v4l2_buffer'u $ filledBuffer
+      let bufferLength :: CSize = fromIntegral . c'v4l2_buffer'length $ filledBuffer
+          bufferOffset :: Int64 = fromIntegral . c'v4l2_buffer_u'offset . c'v4l2_buffer'u $ filledBuffer
           Fd fd'       = fd
 
-      buf <- c'v4l2_mmap nullPtr (fromIntegral bufferLength) (c'PROT_READ .|. c'PROT_WRITE) c'MAP_SHARED fd' (fromIntegral bufferOffset)
+      buf <- c'v4l2_mmap nullPtr bufferLength (c'PROT_READ .|. c'PROT_WRITE) c'MAP_SHARED fd' (fromIntegral bufferOffset)
 
       return (buf, bufferLength)
 
@@ -177,7 +182,7 @@ startV4L2Capture (Opened fd path) f = do
                             }
       v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
 
-    processFrame :: [(Ptr Word8, Word32)] -> IO ()
+    processFrame :: [Buffer] -> IO ()
     processFrame buffers = do 
       threadWaitRead fd
       alloca $ \(v4BufPtr :: Ptr C'v4l2_buffer) -> do
@@ -206,3 +211,18 @@ startV4L2Capture (Opened fd path) f = do
         _ <- forkIO (f (unsafeFromForeignPtr0 copyBuffer bytesUsed))
 
         v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
+
+    streamOff :: [Buffer] -> IO ()
+    streamOff buffers = do
+      alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
+        poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
+        v4l2_ioctl fd c'VIDIOC_STREAMOFF typePtr "Graphics.Capture.V4L2.Device.streamOff: STREAMOFF"
+
+      forM_ buffers $ \(bufPtr, bufSize) -> do
+        c'v4l2_munmap bufPtr bufSize
+
+      -- remove all buffers from kernel memory
+      void $ reqBuffers 0
+
+stopV4L2Capture :: Device S -> IO (Device O)
+stopV4L2Capture (Streaming fd path streamThread) = killThread streamThread >> return (Opened fd path)

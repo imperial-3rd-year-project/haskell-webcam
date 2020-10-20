@@ -13,3 +13,4 @@ class VideoCapture device where
   closeDevice       :: device O -> IO (device U)
   deviceDescription :: device a -> String
   startCapture      :: device O -> (Vector Word8 -> IO ()) -> IO (device S)
+  stopCapture       :: device S -> IO (device O)
