@@ -10,7 +10,8 @@ import Bindings.Posix.Sys.Mman
 import Bindings.Posix.Fcntl (c'O_RDWR, c'O_NONBLOCK)
 
 import Control.Concurrent (threadWaitRead, forkIO, forkFinally, killThread, ThreadId)
-import Control.Monad (filterM, forM, forM_, forever, void)
+import qualified Control.Concurrent.QSem as Sem
+import Control.Monad (filterM, forM, forM_, forever)
 import Data.Bits ((.|.))
 import Data.Int (Int64)
 import Data.List (isPrefixOf)
@@ -33,16 +34,17 @@ import System.Posix.Types (Fd (..))
 data Device a where
   Unopened  :: FilePath       -> Device U
   Opened    :: Fd -> FilePath -> Device O
-  Streaming :: Fd -> FilePath -> ThreadId -> Device S
+  Streaming :: Fd -> FilePath -> ThreadId -> Sem.QSem -> Device S
 
-deriving instance Show (Device a)
+instance Show (Device a) where
+  show = deviceDescription
 
 type Buffer = (Ptr Word8, CSize)
 
 instance VideoCapture Device where
   deviceDescription (Unopened path)    = path
   deviceDescription (Opened _ path)    = path
-  deviceDescription (Streaming _ path _) = path
+  deviceDescription (Streaming _ path _ _) = path
     
   -- finds all /dev/video* which are not links and wraps them in Device type
   getDevices = do
@@ -105,14 +107,16 @@ startV4L2Capture (Opened fd path) f =
 
   putStrLn "Start capture"
 
+  stopCaptureSem <- Sem.newQSem 0
+
   -- Thread turns off stream itself when terminates
-  streamThread <- flip forkFinally (const (streamOff buffers)) $ do
+  streamThread <- flip forkFinally (const (streamOff buffers stopCaptureSem)) $ do
     alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
       poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
       v4l2_ioctl fd c'VIDIOC_STREAMON typePtr "Graphics.Capture.V4L2.Device.startV4L2Capture: STREAMON"
     forever (processFrame buffers)
 
-  return $ Streaming fd path streamThread
+  return $ Streaming fd path streamThread stopCaptureSem
   where
     setFormat :: IO Word32
     setFormat = alloca $ \(fmtPtr :: Ptr C'v4l2_format) -> do
@@ -212,8 +216,8 @@ startV4L2Capture (Opened fd path) f =
 
         v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
 
-    streamOff :: [Buffer] -> IO ()
-    streamOff buffers = do
+    streamOff :: [Buffer] -> Sem.QSem -> IO ()
+    streamOff buffers closeSem = do
       alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
         poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
         v4l2_ioctl fd c'VIDIOC_STREAMOFF typePtr "Graphics.Capture.V4L2.Device.streamOff: STREAMOFF"
@@ -222,7 +226,9 @@ startV4L2Capture (Opened fd path) f =
         c'v4l2_munmap bufPtr bufSize
 
       -- remove all buffers from kernel memory
-      void $ reqBuffers 0
+      _ <- reqBuffers 0
+
+      Sem.signalQSem closeSem
 
 stopV4L2Capture :: Device S -> IO (Device O)
-stopV4L2Capture (Streaming fd path streamThread) = killThread streamThread >> return (Opened fd path)
+stopV4L2Capture (Streaming fd path streamThread closeSem) = killThread streamThread >> Sem.waitQSem closeSem >> return (Opened fd path)
