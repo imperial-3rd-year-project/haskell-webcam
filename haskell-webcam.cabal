@@ -21,6 +21,10 @@ library
   exposed-modules:     
     Graphics.Capture.Class
     Graphics.Capture.V4L2.Device 
+    Graphics.Display.Class
+    Graphics.Display.ConversionUtils
+    Graphics.Utils.Types
+    Graphics.Display.FFmpeg.FileOutput
   other-modules:
   hs-source-dirs:      src
   ghc-options:         -Wall
@@ -33,6 +37,8 @@ library
     , bindings-linux-videodev2
     , hashtables
     , bindings-posix
+    , JuicyPixels
+    , ffmpeg-light
   default-language:    Haskell2010
 
 executable haskell-webcam

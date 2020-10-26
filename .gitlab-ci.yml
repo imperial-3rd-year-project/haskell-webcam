@@ -9,8 +9,8 @@ default:
 
 build:
   stage: build
-  script: cabal build
+  script: cabal build --allow-newer=base
 
 test: 
   stage: test
-  script: cabal test --test-show-details=streaming --test-option=--color
+  script: cabal test --test-show-details=streaming --test-option=--color --allow-newer=base
