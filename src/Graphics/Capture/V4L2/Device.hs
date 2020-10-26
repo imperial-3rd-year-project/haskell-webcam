@@ -27,6 +27,7 @@ import Foreign.Ptr (Ptr, nullPtr)
 import Foreign.Storable
 import GHC.Conc (closeFdWith)
 import Graphics.Capture.Class
+import Graphics.Utils.Types
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
 import System.Posix.Types (Fd (..))
@@ -79,7 +80,7 @@ instance VideoCapture Device where
 
 
 v4l2_ioctl :: Fd -> CULong -> Ptr a -> String -> IO ()
-v4l2_ioctl fd@(Fd fd') req p err = putStrLn ("ioctl :" ++ err) >> throwErrnoIfMinus1RetryMayBlock_ err ioctl onBlock
+v4l2_ioctl fd@(Fd fd') req p err = throwErrnoIfMinus1RetryMayBlock_ err ioctl onBlock
   where
     ioctl   = c'v4l2_ioctl fd' req p
     onBlock = threadWaitRead fd
@@ -89,23 +90,14 @@ startV4L2Capture (Opened fd path) f =
   let numBuffers = 2
    in do
 
-  putStrLn "Setting formats"
-
-  bufferSize <- setFormat
-
-  putStrLn $ "Buffer size: " ++ show bufferSize
-
+  _ <- setFormat
 
   numBuffersAllocated <- reqBuffers numBuffers
-
-  putStrLn $ "Buffers requested; allocated " ++ show numBuffersAllocated
 
   buffers <- createBuffers numBuffers
 
   -- We need to keep reference to enqueued buffers so they do not get deleted by the garbage collector
   enqueueBuffersMMAP numBuffersAllocated
-
-  putStrLn "Start capture"
 
   stopCaptureSem <- Sem.newQSem 0
 
@@ -122,9 +114,7 @@ startV4L2Capture (Opened fd path) f =
     setFormat = alloca $ \(fmtPtr :: Ptr C'v4l2_format) -> do
       fillBytes fmtPtr 0 (sizeOf (undefined :: C'v4l2_format))
       -- v4l2_ioctl fd c'VIDIOC_G_FMT fmtPtr
-      putStrLn "Format retrived"
       format <- c'v4l2_format'fmt <$> peek fmtPtr
-
       let pixelFormat = (c'v4l2_format_u'pix format) { c'v4l2_pix_format'field       = c'V4L2_FIELD_INTERLACED
                                                      , c'v4l2_pix_format'pixelformat = c'V4L2_PIX_FMT_RGB24
                                                      , c'v4l2_pix_format'width = 640
@@ -203,15 +193,12 @@ startV4L2Capture (Opened fd path) f =
 
         let bufIndex :: Int= fromIntegral . c'v4l2_buffer'index $ dqV4Buf
             bytesUsed :: Int = fromIntegral . c'v4l2_buffer'bytesused $ dqV4Buf
-            time = c'v4l2_buffer'timestamp $ dqV4Buf
-            sec :: Int = fromIntegral . c'timeval'tv_sec $ time
+            -- time = c'v4l2_buffer'timestamp $ dqV4Buf
+            -- sec :: Int = fromIntegral . c'timeval'tv_sec $ time
 
         copyBuffer <- mallocForeignPtrBytes (fromIntegral bytesUsed)
 
-        putStrLn $ show sec
-
         withForeignPtr copyBuffer $ \dst -> copyBytes dst (fst (buffers !! bufIndex)) bytesUsed
-
         _ <- forkIO (f (unsafeFromForeignPtr0 copyBuffer bytesUsed))
 
         v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
