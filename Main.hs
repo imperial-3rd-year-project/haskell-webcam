@@ -1,34 +1,34 @@
 module Main where
 
-import Control.Monad (forever)
-import Control.Concurrent (yield, threadDelay)
-import qualified Data.Vector.Storable as V
+import Control.Concurrent (threadDelay)
 import Graphics.Capture.Class
 import Graphics.Capture.V4L2.Device
 import qualified Graphics.Display.Class as O
 import qualified Graphics.Display.FFmpeg.FileOutput as O
 
-import Data.Word (Word8)
-import Foreign.ForeignPtr
+import System.Exit (exitSuccess)
 
-import System.IO (hPutBuf, withFile, IOMode(AppendMode), Handle)
+import Graphics.Display.WindowDisplay
 
 main :: IO ()
 main = do
   -- Output device setup
-  let outputDevice = (O.Unopened 30 (640, 480) "/tmp/video4.mp4")
-  streamingOutput <- O.openDevice outputDevice 
+  let fileOutput = (O.Unopened 30 (640, 480) "/tmp/video4.mp4")
+  streamingFileOutput <- O.openDevice fileOutput 
+
+  streamingWindowOutput <- O.openDevice (newOutputWindow (640, 480) 30)
    
   -- Input Device setup
   let device = Unopened "/dev/video0"
   opened <- openDevice device
 
-  streaming <- startCapture opened $ O.writeFrame streamingOutput
+  streaming <- startCapture opened $ \v -> O.writeFrame streamingWindowOutput v >> O.writeFrame streamingFileOutput v
   putStrLn "Hello, Haskell!"
-  threadDelay 5000000
+  threadDelay 50000000
 
   opened <- stopCapture streaming
   closeDevice opened
 
-  O.closeDevice streamingOutput
-  return ()
+  O.closeDevice streamingFileOutput
+
+  exitSuccess
