@@ -130,6 +130,7 @@ startV4L2Capture (Opened fd path) f =
       v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: S_FMT"
       filledFmt <- c'v4l2_format'fmt <$> peek fmtPtr
       let filledPixelFormat = c'v4l2_format_u'pix filledFmt
+      putStrLn $ show filledPixelFormat
       return $ c'v4l2_pix_format'sizeimage filledPixelFormat
 
     reqBuffers :: Word32 -> IO Word32
