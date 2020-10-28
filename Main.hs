@@ -5,6 +5,7 @@ import Graphics.Capture.Class
 import Graphics.Capture.V4L2.Device
 import qualified Graphics.Display.Class as O
 import qualified Graphics.Display.FFmpeg.FileOutput as O
+import qualified Graphics.Display.DisplayBuffer as B
 
 import System.Exit (exitSuccess)
 
@@ -14,8 +15,9 @@ main :: IO ()
 main = do
   -- Output device setup
   let fileOutput = (O.Unopened 30 (640, 480) "/tmp/video4.mp4")
-  streamingFileOutput <- O.openDevice fileOutput 
+      bufferedOutput = B.newBuffer 3 fileOutput
 
+  streamingFileOutput   <- O.openDevice bufferedOutput 
   streamingWindowOutput <- O.openDevice (newOutputWindow (640, 480) 30)
    
   -- Input Device setup

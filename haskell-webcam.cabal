@@ -24,6 +24,7 @@ library
     Graphics.Display.WindowDisplay
     Graphics.Display.Class
     Graphics.Display.ConversionUtils
+    Graphics.Display.DisplayBuffer
     Graphics.Utils.Types
     Graphics.Display.FFmpeg.FileOutput
   other-modules:
