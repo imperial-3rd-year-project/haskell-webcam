@@ -17,9 +17,8 @@ import Data.Int (Int64)
 import Data.List (isPrefixOf)
 import Data.Vector.Storable (Vector, unsafeFromForeignPtr0)
 import Data.Word (Word8, Word32)
-import Foreign.C.Error (throwErrnoIfMinus1, throwErrnoIfMinus1RetryMayBlock_)
-import Foreign.C.String (withCString)
-import Foreign.C.Types (CULong, CSize)
+import Foreign.C.Error (throwErrnoIfMinus1)
+import Foreign.C.Types (CSize)
 import Foreign.ForeignPtr (mallocForeignPtrBytes, withForeignPtr)
 import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (copyBytes, fillBytes)
@@ -28,6 +27,7 @@ import Foreign.Storable
 import GHC.Conc (closeFdWith)
 import Graphics.Capture.Class
 import Graphics.Utils.Types
+import Graphics.Utils.V4L2.Device
 import System.Directory (listDirectory, pathIsSymbolicLink)
 import System.FilePath.Posix ((</>))
 import System.Posix.Types (Fd (..))
@@ -60,12 +60,11 @@ instance VideoCapture Device where
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
 
-  openDevice (Unopened path) = withCString path $ \p -> do
-    fd <- throwErrnoIfMinus1 errorString (c'v4l2_open p (c'O_RDWR .|. c'O_NONBLOCK) 0)
-    return $ Opened (fromIntegral fd) path
-    where  
-      errorString = "Graphics.Capture.V4L2.Device.openDevice"
-
+  openDevice (Unopened path) 
+    = v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString >>= 
+      return . flip Opened path 
+    where
+       errorString = "Graphics.Capture.V4L2.Device.closeDevice"
 
   closeDevice (Opened fd path) = 
     closeFdWith closeFn fd >> (return $ Unopened path)
@@ -78,12 +77,6 @@ instance VideoCapture Device where
   startCapture = startV4L2Capture
   stopCapture  = stopV4L2Capture
 
-
-v4l2_ioctl :: Fd -> CULong -> Ptr a -> String -> IO ()
-v4l2_ioctl fd@(Fd fd') req p err = throwErrnoIfMinus1RetryMayBlock_ err ioctl onBlock
-  where
-    ioctl   = c'v4l2_ioctl fd' req p
-    onBlock = threadWaitRead fd
 
 startV4L2Capture :: Device O -> (Vector Word8 -> IO ()) -> IO (Device S)
 startV4L2Capture (Opened fd path) f = 
@@ -118,7 +111,7 @@ startV4L2Capture (Opened fd path) f =
       let pixelFormat = (c'v4l2_format_u'pix format) { c'v4l2_pix_format'field       = c'V4L2_FIELD_INTERLACED
                                                      , c'v4l2_pix_format'pixelformat = c'V4L2_PIX_FMT_RGB24
                                                      , c'v4l2_pix_format'width = 640
-                                                     , c'v4l2_pix_format'height = 480
+                                                     , c'v4l2_pix_format'height = 360
                                                      }
 
       poke fmtPtr $ C'v4l2_format { c'v4l2_format'type = c'V4L2_BUF_TYPE_VIDEO_CAPTURE
