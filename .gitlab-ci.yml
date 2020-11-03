@@ -1,6 +1,7 @@
 stages: 
   - build
   - test
+  - lint
 
 default:
   image: rp218/haskell_v4l2:latest
@@ -14,3 +15,7 @@ build:
 test: 
   stage: test
   script: cabal test --test-show-details=streaming --test-option=--color --allow-newer=base
+
+lint:
+  stage: lint
+  script: hlint .

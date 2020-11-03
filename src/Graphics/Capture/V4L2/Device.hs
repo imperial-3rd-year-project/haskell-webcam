@@ -1,6 +1,5 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
 
 module Graphics.Capture.V4L2.Device (Device (..)) where
 
@@ -11,7 +10,7 @@ import Bindings.Posix.Fcntl (c'O_RDWR, c'O_NONBLOCK)
 
 import Control.Concurrent (threadWaitRead, forkIO, forkFinally, killThread, ThreadId)
 import qualified Control.Concurrent.QSem as Sem
-import Control.Monad (filterM, forM, forM_, forever)
+import Control.Monad (filterM, forM, forM_, forever, void)
 import Data.Bits ((.|.))
 import Data.Int (Int64)
 import Data.List (isPrefixOf)
@@ -61,18 +60,17 @@ instance VideoCapture Device where
       videoDevPrefix  = "video"
 
   openDevice (Unopened path) 
-    = v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString >>= 
-      return . flip Opened path 
+    = flip Opened path <$> v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
 
   closeDevice (Opened fd path) = 
-    closeFdWith closeFn fd >> (return $ Unopened path)
+    closeFdWith closeFn fd >> return (Unopened path)
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
        closeFn :: Fd -> IO ()
        closeFn fileDesc = 
-         throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) >> return ()
+         void $ throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) 
 
   startCapture = startV4L2Capture
   stopCapture  = stopV4L2Capture
@@ -123,7 +121,7 @@ startV4L2Capture (Opened fd path) f =
       v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: S_FMT"
       filledFmt <- c'v4l2_format'fmt <$> peek fmtPtr
       let filledPixelFormat = c'v4l2_format_u'pix filledFmt
-      putStrLn $ show filledPixelFormat
+      print $ show filledPixelFormat
       return $ c'v4l2_pix_format'sizeimage filledPixelFormat
 
     reqBuffers :: Word32 -> IO Word32

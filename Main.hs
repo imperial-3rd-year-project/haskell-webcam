@@ -2,7 +2,6 @@ module Main where
 
 import Control.Monad (forever)
 import Control.Concurrent (yield, threadDelay)
-import Control.Concurrent (threadDelay)
 import Graphics.Capture.Class
 import Graphics.Capture.V4L2.Device
 import qualified Data.Vector.Storable as V
@@ -25,7 +24,7 @@ main = do
   let bufDevOutput = B.newBuffer 3 deviceOutput
   streamingDevOutput <- O.openDevice bufDevOutput
   -- Output device setup
-  let fileOutput = (O.Unopened 30 (640, 360) "/tmp/video4.mp4")
+  let fileOutput = O.Unopened 30 (640, 360) "/tmp/video4.mp4"
       bufferedOutput = B.newBuffer 3 fileOutput
 
   streamingFileOutput   <- O.openDevice bufferedOutput 
