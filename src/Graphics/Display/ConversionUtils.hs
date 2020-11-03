@@ -57,7 +57,7 @@ rgbToY :: (Word8, Word8, Word8) -> Word8
 rgbToY (r, g, b) 
     = round res
     where
-      res = (wr * fromIntegral r + wg * fromIntegral g + wb * fromIntegral b + c)
+      res = wr * fromIntegral r + wg * fromIntegral g + wb * fromIntegral b + c
       wr = 0.299 :: Double
       wg = 0.587 :: Double
       wb = 0.114 :: Double

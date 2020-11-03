@@ -1,5 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE LambdaCase #-}
 
 module Graphics.Display.WindowDisplay 
   ( WindowDisplayOutput

@@ -10,10 +10,10 @@ import Bindings.Posix.Fcntl (c'O_RDWR)
 import Data.Vector.Storable (unsafeToForeignPtr0)
 import Graphics.Display.Class 
 import Graphics.Display.ConversionUtils (toYUV420Image)
-import Graphics.Utils.Types
+import Graphics.Utils.Types ()
 import Graphics.Utils.V4L2.Device
 import Foreign.ForeignPtr (withForeignPtr)
-import Foreign.Marshal.Alloc (alloca, allocaBytes)
+import Foreign.Marshal.Alloc (alloca)
 import Foreign.Marshal.Utils (fillBytes)
 import Foreign.Ptr (Ptr)
 import Foreign.Storable (peek, poke, pokeByteOff, sizeOf)
@@ -30,7 +30,7 @@ deriving instance Show (DeviceOutput a)
 
 instance VideoOutput DeviceOutput where
   openDevice (Unopened path) = do
-    fd <- v4l2_open path (c'O_RDWR) errorString 
+    fd <- v4l2_open path c'O_RDWR errorString 
     setFormat fd
     return $ Streaming fd path
     where 
@@ -63,3 +63,5 @@ instance VideoOutput DeviceOutput where
       _ <- fdWriteBuf fd ptr (fromIntegral len)
       return ()
    
+  -- TODO implement closeDevice
+  closeDevice = undefined
