@@ -57,8 +57,7 @@ instance VideoOutput DeviceOutput where
          return ()
            
   writeFrame (Streaming fd _) img = do
-    let yuvimg      = toYUV420Image (640, 360) img
-        (fptr, len) = unsafeToForeignPtr0 yuvimg
+    let    (fptr, len) = unsafeToForeignPtr0 img
     withForeignPtr fptr $ \ptr -> do
       _ <- fdWriteBuf fd ptr (fromIntegral len)
       return ()
