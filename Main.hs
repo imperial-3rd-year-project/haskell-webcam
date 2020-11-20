@@ -18,6 +18,9 @@ import System.Exit (exitSuccess)
 
 import Graphics.Display.WindowDisplay
 
+transform :: V.Vector Word8 -> V.Vector Word8
+transform = V.map (255 -) 
+
 main :: IO ()
 main = do
   let deviceOutput = D.Unopened "/dev/video4"
@@ -25,22 +28,36 @@ main = do
   streamingDevOutput <- O.openDevice bufDevOutput
   -- Output device setup
   let fileOutput = O.Unopened 30 (640, 360) "/tmp/video4.mp4"
-      bufferedOutput = B.newBuffer 3 fileOutput
+      --bufferedOutput = B.newBuffer 3 fileOutput
 
-  streamingFileOutput   <- O.openDevice bufferedOutput 
+  streamingFileOutput   <- O.openDevice fileOutput
   streamingWindowOutput <- O.openDevice (newOutputWindow (640, 360) 30)
+
    
   -- Input Device setup
   let device = Unopened "/dev/video0"
   opened <- openDevice device
 
-  streaming <- startCapture opened $ \v -> O.writeFrame streamingWindowOutput v >> O.writeFrame streamingFileOutput v >> O.writeFrame streamingDevOutput v
+  let input2 = Unopened "/dev/video4"
+  inputOpened <- openDevice input2
+
+
+--  streaming <- startCapture opened $ \v -> O.writeFrame streamingWindowOutput v >> O.writeFrame streamingFileOutput v -- >> O.writeFrame streamingDevOutput v
+  streamingCamera <- startCapture opened $ \v -> O.writeFrame streamingDevOutput (transform v)
+  streamingDev <- startCapture inputOpened $ \v -> O.writeFrame streamingWindowOutput v >> O.writeFrame streamingFileOutput v
+
+  -- streaming <- startCapture opened $ \v -> O.writeFrame streamingDevOutput v
   putStrLn "Hello, Haskell!"
-  threadDelay 50000000
+  threadDelay 15000000
 
-  opened <- stopCapture streaming
-  closeDevice opened
-
+  -- opened <- stopCapture streaming
+  cameraOpened <- stopCapture streamingCamera
   O.closeDevice streamingFileOutput
+  devOpened <- stopCapture streamingDev
+  putStrLn "here"
+  closeDevice cameraOpened
+  putStrLn "here"
+  closeDevice devOpened
+
 
   exitSuccess
