@@ -5,6 +5,3 @@ RUN apt-get install freeglut3-dev -y
 COPY . /code
 WORKDIR /code
 CMD ["bash"]
-
-
-
