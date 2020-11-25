@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Graphics.Capture.V4L2.Device 
-    ( Device
+    ( Device(..)
     , newV4L2CaptureDevice
     , v4l2resolution
     ) where
