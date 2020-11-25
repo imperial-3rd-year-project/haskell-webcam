@@ -1,7 +1,11 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Graphics.Capture.V4L2.Device (Device (..)) where
+module Graphics.Capture.V4L2.Device 
+    ( Device
+    , newV4L2CaptureDevice
+    , v4l2resolution
+    ) where
 
 import Bindings.LibV4L2
 import Bindings.Linux.VideoDev2
@@ -106,11 +110,11 @@ startV4L2Capture (Opened fd path) f =
       fillBytes fmtPtr 0 (sizeOf (undefined :: C'v4l2_format))
       -- v4l2_ioctl fd c'VIDIOC_G_FMT fmtPtr
       format <- c'v4l2_format'fmt <$> peek fmtPtr
+      let (width, height) = v4l2resolution 
       let pixelFormat = (c'v4l2_format_u'pix format) { c'v4l2_pix_format'field       = c'V4L2_FIELD_INTERLACED
                                                      , c'v4l2_pix_format'pixelformat = c'V4L2_PIX_FMT_RGB24
-                                                     , c'v4l2_pix_format'width = 640
-                                                     , c'v4l2_pix_format'height = 360
-                                                     }
+                                                     , c'v4l2_pix_format'width = fromIntegral width
+                                                     , c'v4l2_pix_format'height = fromIntegral height                                                     }
 
       poke fmtPtr $ C'v4l2_format { c'v4l2_format'type = c'V4L2_BUF_TYPE_VIDEO_CAPTURE
                                   , c'v4l2_format'fmt  = format { c'v4l2_format_u'pix = pixelFormat }
@@ -211,3 +215,9 @@ startV4L2Capture (Opened fd path) f =
 
 stopV4L2Capture :: Device S -> IO (Device O)
 stopV4L2Capture (Streaming fd path streamThread closeSem) = killThread streamThread >> Sem.waitQSem closeSem >> return (Opened fd path)
+
+newV4L2CaptureDevice :: String -> Device U
+newV4L2CaptureDevice = Unopened
+
+v4l2resolution :: (Int, Int)
+v4l2resolution = (640, 480)

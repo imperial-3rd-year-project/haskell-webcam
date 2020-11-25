@@ -17,10 +17,7 @@ spec :: Spec
 spec = do 
   describe "deviceDescription" $ do
     it "returns the first constructor argument for the unopened device" $ property $
-       \x -> deviceDescription (Unopened x) == (x :: String)
-
-    it "returns the second constructor argument for the opened device" $ property $
-        \x y -> deviceDescription (Opened x y) == (y :: String)
+       \x -> deviceDescription (newV4L2CaptureDevice x) == (x :: String)
 
    -- TODO Find a way to use ThreadId with its constructor
    -- it "returns the second constructor argument for the streaming device" $ property $
