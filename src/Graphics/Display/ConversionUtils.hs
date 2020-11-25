@@ -1,9 +1,49 @@
-module Graphics.Display.ConversionUtils (toJuicyPixelImage, toYUV420Image) where
+module Graphics.Display.ConversionUtils (centredOffset, resize, toJuicyPixelImage, toYUV420Image) where
 
 import Data.Word (Word8)
 import Codec.Picture (Image(Image), PixelRGB8)
 
 import qualified Data.Vector.Storable as V
+
+centredOffset :: (Int, Int) -> (Int, Int) -> (Int, Int)
+centredOffset (wFrom, hFrom) (wTo, hTo) = ((wFrom - wTo) `div` 2, (hFrom - hTo) `div` 2)
+
+-- PRE: length V.Vector Word8 == xFrom * yFrom
+-- Crops the picture in the appropriate manner; fills with grey pixels if size is bigger
+resize :: (Int, Int) -> (Int, Int) -> (Int, Int) -> V.Vector Word8 -> V.Vector Word8
+resize (offsetW, offsetH) (wFrom, hFrom) (wTo, hTo) img 
+  = V.fromList pixels
+  where
+    pixels             = fill 0 0
+    pixelSize          = 3
+    fill :: Int -> Int -> [Word8]
+    fill i j
+      | i >= hTo  = []
+      | j >= wTo  = fill (i + 1) 0
+      | otherwise = currPixel ++ fill i (j + 1)
+      where 
+        (oldI, oldJ) = (i + offsetH, j + offsetW)
+        currPixel    = if oldI >= hFrom || oldI < 0 || oldJ >= wFrom || oldJ < 0
+                       then [200, 200, 200]
+                       else [img V.! ((oldI * wFrom + oldJ) * pixelSize + z) | z <- [0..pixelSize - 1]]
+
+-- resize :: (Int, Int) -> (Int, Int) -> V.Vector Word8 -> V.Vector Word8
+-- resize (wFrom, hFrom) (wTo, hTo) img 
+--   = V.fromList pixels
+--   where
+--     (offsetW, offsetH) = ((wFrom - wTo) `div` 2, (hFrom - hTo) `div` 2)
+--     pixels             = fill 0 0
+--     pixelSize          = 3
+--     fill :: Int -> Int -> [Word8]
+--     fill i j
+--       | i >= hTo  = []
+--       | j >= wTo  = fill (i + 1) 0
+--       | otherwise = currPixel ++ fill i (j + 1)
+--       where 
+--         (oldI, oldJ) = (i + offsetH, j + offsetW)
+--         currPixel    = if oldI >= hFrom || oldI < 0 || oldJ >= wFrom || oldJ < 0
+--                        then [200, 200, 200]
+--                        else [img V.! ((oldI * wFrom + oldJ) * pixelSize + z) | z <- [0..pixelSize - 1]]
 
 -- Given image, its width, and height returns JuicyPixelImage
 toJuicyPixelImage :: (Int, Int) -> V.Vector Word8 -> Image PixelRGB8
