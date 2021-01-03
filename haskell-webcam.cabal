@@ -22,11 +22,11 @@ library
     Graphics.Capture.Class
     Graphics.Capture.V4L2.Device 
     Graphics.Display.Class
-    Graphics.Display.ConversionUtils
     Graphics.Display.DisplayBuffer
     Graphics.Display.FFmpeg.FileOutput
     Graphics.Display.V4L2.Device
     Graphics.Display.WindowDisplay
+    Graphics.Utils.ConversionUtils
     Graphics.Utils.Types
     Graphics.Utils.V4L2.Device
   other-modules:

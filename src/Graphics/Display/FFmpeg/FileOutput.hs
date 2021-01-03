@@ -5,8 +5,8 @@ module Graphics.Display.FFmpeg.FileOutput (FileOutput(Unopened)) where
 import Codec.FFmpeg (EncodingParams(EncodingParams), imageWriter, initFFmpeg)
 import qualified Data.Vector.Storable as V
 import Data.Word (Word8)
-import Graphics.Display.ConversionUtils (toJuicyPixelImage)
 import Graphics.Display.Class
+import Graphics.Utils.ConversionUtils (toJuicyPixelImage)
 import Graphics.Utils.Types
 
 data FileOutput a where

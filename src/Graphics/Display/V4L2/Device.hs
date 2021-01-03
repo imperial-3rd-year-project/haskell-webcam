@@ -12,7 +12,7 @@ import Bindings.Linux.VideoDev2
 import Bindings.Posix.Fcntl (c'O_RDWR)
 import Data.Vector.Storable (unsafeToForeignPtr0)
 import Graphics.Display.Class 
-import Graphics.Display.ConversionUtils (centredOffset, resize)
+import Graphics.Utils.ConversionUtils (centredOffset, resize)
 import Graphics.Utils.Types ()
 import Graphics.Utils.V4L2.Device
 import Foreign.ForeignPtr (withForeignPtr)

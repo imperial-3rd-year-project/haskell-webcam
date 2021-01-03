@@ -1,4 +1,4 @@
-module Graphics.Display.ConversionUtils (centredOffset, resize, toJuicyPixelImage, toYUV420Image) where
+module Graphics.Utils.ConversionUtils (centredOffset, resize, toJuicyPixelImage, toYUV420Image) where
 
 import Data.Word (Word8)
 import Codec.Picture (Image(Image), PixelRGB8)
@@ -27,23 +27,6 @@ resize (offsetW, offsetH) (wFrom, hFrom) (wTo, hTo) img
                        then [200, 200, 200]
                        else [img V.! ((oldI * wFrom + oldJ) * pixelSize + z) | z <- [0..pixelSize - 1]]
 
--- resize :: (Int, Int) -> (Int, Int) -> V.Vector Word8 -> V.Vector Word8
--- resize (wFrom, hFrom) (wTo, hTo) img 
---   = V.fromList pixels
---   where
---     (offsetW, offsetH) = ((wFrom - wTo) `div` 2, (hFrom - hTo) `div` 2)
---     pixels             = fill 0 0
---     pixelSize          = 3
---     fill :: Int -> Int -> [Word8]
---     fill i j
---       | i >= hTo  = []
---       | j >= wTo  = fill (i + 1) 0
---       | otherwise = currPixel ++ fill i (j + 1)
---       where 
---         (oldI, oldJ) = (i + offsetH, j + offsetW)
---         currPixel    = if oldI >= hFrom || oldI < 0 || oldJ >= wFrom || oldJ < 0
---                        then [200, 200, 200]
---                        else [img V.! ((oldI * wFrom + oldJ) * pixelSize + z) | z <- [0..pixelSize - 1]]
 
 -- Given image, its width, and height returns JuicyPixelImage
 toJuicyPixelImage :: (Int, Int) -> V.Vector Word8 -> Image PixelRGB8
@@ -54,7 +37,6 @@ toYUV420Image :: (Int, Int) -> V.Vector Word8 -> V.Vector Word8
 toYUV420Image (w, h) img
   = V.fromList $ 
           ys 
-          -- replicate 230400 0
           ++ dus 
           -- ++ replicate 57600 130
           ++ dvs 

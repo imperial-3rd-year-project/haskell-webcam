@@ -22,7 +22,7 @@ import Graphics.Gloss.Data.Picture
 import Graphics.Gloss.Interface.IO.Simulate
 
 import Graphics.Display.Class
-import Graphics.Display.ConversionUtils
+import Graphics.Utils.ConversionUtils
 
 
 data WindowDisplayOutput a where

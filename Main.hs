@@ -4,8 +4,8 @@ import Control.Monad (forever)
 import Control.Concurrent (yield, threadDelay)
 import Graphics.Capture.Class
 import Graphics.Capture.V4L2.Device 
-import Graphics.Display.ConversionUtils (centredOffset, resize)
 import Graphics.Display.V4L2.Device (newV4L2Output)
+import Graphics.Utils.ConversionUtils (centredOffset, resize)
 import qualified Data.Vector.Storable as V
 import qualified Graphics.Display.Class as O
 import qualified Graphics.Display.FFmpeg.FileOutput as O
