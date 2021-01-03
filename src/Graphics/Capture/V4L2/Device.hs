@@ -107,7 +107,8 @@ startV4L2Capture (Opened path fd) f =
   streamThread <- flip forkFinally (const (streamOff buffers stopCaptureSem)) $ do
     alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
       poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
-      v4l2_ioctl fd c'VIDIOC_STREAMON typePtr "Graphics.Capture.V4L2.Device.startV4L2Capture: STREAMON"
+      let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: STREAMON"
+      v4l2_ioctl fd c'VIDIOC_STREAMON typePtr errorString
     forever (processFrame buffers)
 
   return $ Streaming path fd streamThread stopCaptureSem
@@ -129,7 +130,8 @@ startV4L2Capture (Opened path fd) f =
 
       pokeByteOff fmtPtr 8 pixelFormat
 
-      v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: S_FMT"
+      let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: S_FMT"
+      v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr errorString
       filledFmt <- c'v4l2_format'fmt <$> peek fmtPtr
       let filledPixelFormat = c'v4l2_format_u'pix filledFmt
       print $ show filledPixelFormat
@@ -144,7 +146,8 @@ startV4L2Capture (Opened path fd) f =
                         , c'v4l2_requestbuffers'memory   = c'V4L2_MEMORY_MMAP
                         }
 
-      v4l2_ioctl fd c'VIDIOC_REQBUFS reqPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: REQBUFS"
+      let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: REQBUFS"
+      v4l2_ioctl fd c'VIDIOC_REQBUFS reqPtr errorString
 
       c'v4l2_requestbuffers'count <$> peek reqPtr
 
@@ -158,7 +161,9 @@ startV4L2Capture (Opened path fd) f =
                            , c'v4l2_buffer'memory = c'V4L2_MEMORY_MMAP
                            , c'v4l2_buffer'index = i
                            }
-      v4l2_ioctl fd c'VIDIOC_QUERYBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QUERYBUF"
+
+      let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: QUERYBUF"
+      v4l2_ioctl fd c'VIDIOC_QUERYBUF v4BufPtr errorString
 
       filledBuffer <- peek v4BufPtr
 
@@ -177,7 +182,9 @@ startV4L2Capture (Opened path fd) f =
                             , c'v4l2_buffer'memory = c'V4L2_MEMORY_MMAP
                             , c'v4l2_buffer'index = i
                             }
-      v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
+
+      let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
+      v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr errorString
 
     processFrame :: [Buffer] -> IO ()
     processFrame buffers = do 
@@ -190,7 +197,8 @@ startV4L2Capture (Opened path fd) f =
                             , c'v4l2_buffer'memory = c'V4L2_MEMORY_MMAP
                             }
 
-        v4l2_ioctl fd c'VIDIOC_DQBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: DQBUF"
+        let errorString = "Graphics.Capture.V4L2.Device.startV4L2Capture: DQBUF"
+        v4l2_ioctl fd c'VIDIOC_DQBUF v4BufPtr errorString
 
         dqV4Buf <- peek v4BufPtr
 
@@ -204,13 +212,15 @@ startV4L2Capture (Opened path fd) f =
         withForeignPtr copyBuffer $ \dst -> copyBytes dst (fst (buffers !! bufIndex)) bytesUsed
         _ <- forkIO (f (unsafeFromForeignPtr0 copyBuffer bytesUsed))
 
-        v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
+        let errString = "Graphics.Capture.V4L2.Device.startV4L2Capture: QBUF"
+        v4l2_ioctl fd c'VIDIOC_QBUF v4BufPtr errString
 
     streamOff :: [Buffer] -> Sem.QSem -> IO ()
     streamOff buffers closeSem = do
       alloca $ \(typePtr :: Ptr C'v4l2_buf_type) -> do
         poke typePtr c'V4L2_BUF_TYPE_VIDEO_CAPTURE
-        v4l2_ioctl fd c'VIDIOC_STREAMOFF typePtr "Graphics.Capture.V4L2.Device.streamOff: STREAMOFF"
+        let errorString = "Graphics.Capture.V4L2.Device.streamOff: STREAMOFF"
+        v4l2_ioctl fd c'VIDIOC_STREAMOFF typePtr errorString
 
       forM_ buffers $ \(bufPtr, bufSize) -> do
         c'v4l2_munmap bufPtr bufSize
