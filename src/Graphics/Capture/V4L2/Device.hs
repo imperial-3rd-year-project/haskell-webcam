@@ -36,9 +36,9 @@ import System.FilePath.Posix ((</>))
 import System.Posix.Types (Fd (..))
 
 data Device a where
-  Unopened  :: FilePath       -> Device U
-  Opened    :: Fd -> FilePath -> Device O
-  Streaming :: Fd -> FilePath -> ThreadId -> Sem.QSem -> Device S
+  Unopened  :: FilePath -> Device U
+  Opened    :: FilePath -> Fd -> Device O
+  Streaming :: FilePath -> Fd -> ThreadId -> Sem.QSem -> Device S
 
 instance Show (Device a) where
   show = deviceDescription
@@ -47,8 +47,8 @@ type Buffer = (Ptr Word8, CSize)
 
 instance VideoCapture Device where
   deviceDescription (Unopened path)        = path
-  deviceDescription (Opened _ path)        = path
-  deviceDescription (Streaming _ path _ _) = path
+  deviceDescription (Opened path _)        = path
+  deviceDescription (Streaming path _ _ _) = path
     
   getDevices   = getV4L2Devices
   openDevice   = openV4L2Device 
@@ -71,17 +71,15 @@ getV4L2Devices = do
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
 
- 
-
 
 openV4L2Device :: Device U -> IO (Device O)
 openV4L2Device (Unopened path)
-    = flip Opened path <$> v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString
+    = Opened path <$> v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
 
 closeV4L2Device :: Device O -> IO (Device U)
-closeV4L2Device (Opened fd path) = 
+closeV4L2Device (Opened path fd) = 
     closeFdWith closeFn fd >> return (Unopened path)
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
@@ -90,7 +88,7 @@ closeV4L2Device (Opened fd path) =
          void $ throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) 
 
 startV4L2Capture :: Device O -> (Vector Word8 -> IO ()) -> IO (Device S)
-startV4L2Capture (Opened fd path) f = 
+startV4L2Capture (Opened path fd) f = 
   let numBuffers = 2
    in do
 
@@ -112,7 +110,7 @@ startV4L2Capture (Opened fd path) f =
       v4l2_ioctl fd c'VIDIOC_STREAMON typePtr "Graphics.Capture.V4L2.Device.startV4L2Capture: STREAMON"
     forever (processFrame buffers)
 
-  return $ Streaming fd path streamThread stopCaptureSem
+  return $ Streaming path fd streamThread stopCaptureSem
   where
     setFormat :: IO Word32
     setFormat = alloca $ \(fmtPtr :: Ptr C'v4l2_format) -> do
@@ -223,7 +221,7 @@ startV4L2Capture (Opened fd path) f =
       Sem.signalQSem closeSem
 
 stopV4L2Capture :: Device S -> IO (Device O)
-stopV4L2Capture (Streaming fd path streamThread closeSem) = killThread streamThread >> Sem.waitQSem closeSem >> return (Opened fd path)
+stopV4L2Capture (Streaming path fd streamThread closeSem) = killThread streamThread >> Sem.waitQSem closeSem >> return (Opened path fd)
 
 newV4L2CaptureDevice :: FilePath -> Device U
 newV4L2CaptureDevice = Unopened
