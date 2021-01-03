@@ -23,11 +23,12 @@ import Graphics.Gloss.Interface.IO.Simulate
 
 import Graphics.Display.Class
 import Graphics.Utils.ConversionUtils
+import Graphics.Utils.Types (Resolution)
 
 
 data WindowDisplayOutput a where
-  Unopened :: (Int, Int) -> Int -> WindowDisplayOutput U
-  Streaming :: (Int, Int) -> Int -> (V.Vector Word8 -> IO ()) -> WindowDisplayOutput S
+  Unopened  :: Resolution -> Int -> WindowDisplayOutput U
+  Streaming :: Resolution -> Int -> (V.Vector Word8 -> IO ()) -> WindowDisplayOutput S
 
 
 instance VideoOutput WindowDisplayOutput where
@@ -37,7 +38,7 @@ instance VideoOutput WindowDisplayOutput where
 
   closeDevice _ = error "GLUT backend does not support closing"
 
-newOutputWindow :: (Int, Int) -> Int -> WindowDisplayOutput U
+newOutputWindow :: Resolution -> Int -> WindowDisplayOutput U
 newOutputWindow = Unopened
 
 openWindowOutput :: WindowDisplayOutput U -> IO (WindowDisplayOutput S)
