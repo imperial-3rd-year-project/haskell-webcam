@@ -28,7 +28,7 @@ demoWriteToDevice = do
   let bufDevOutput = B.newBuffer 3 deviceOutput
   streamingDevOutput <- O.openDevice bufDevOutput
   -- Output device setup
-  let fileOutput = O.Unopened 30 v4l2resolution "/tmp/video4.mp4"
+  let fileOutput = O.newFileOutput 30 v4l2resolution "/tmp/video4.mp4"
       --bufferedOutput = B.newBuffer 3 fileOutput
 
   streamingFileOutput   <- O.openDevice fileOutput
