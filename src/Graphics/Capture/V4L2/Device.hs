@@ -46,12 +46,20 @@ instance Show (Device a) where
 type Buffer = (Ptr Word8, CSize)
 
 instance VideoCapture Device where
-  deviceDescription (Unopened path)    = path
-  deviceDescription (Opened _ path)    = path
+  deviceDescription (Unopened path)        = path
+  deviceDescription (Opened _ path)        = path
   deviceDescription (Streaming _ path _ _) = path
     
-  -- finds all /dev/video* which are not links and wraps them in Device type
-  getDevices = do
+  getDevices   = getV4L2Devices
+  openDevice   = openV4L2Device 
+  closeDevice  = closeV4L2Device
+  startCapture = startV4L2Capture
+  stopCapture  = stopV4L2Capture
+
+
+-- finds all /dev/video* which are not links and wraps them in Device type
+getV4L2Devices :: IO [Device U]
+getV4L2Devices = do
     devs <- listDirectory deviceDir
 
     let relNameDevs  = filter (isPrefixOf videoDevPrefix) devs
@@ -63,22 +71,23 @@ instance VideoCapture Device where
       deviceDir       = "/dev"
       videoDevPrefix  = "video"
 
-  openDevice (Unopened path) 
+ 
+
+
+openV4L2Device :: Device U -> IO (Device O)
+openV4L2Device (Unopened path)
     = flip Opened path <$> v4l2_open path (c'O_RDWR .|. c'O_NONBLOCK) errorString
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
 
-  closeDevice (Opened fd path) = 
+closeV4L2Device :: Device O -> IO (Device U)
+closeV4L2Device (Opened fd path) = 
     closeFdWith closeFn fd >> return (Unopened path)
     where
        errorString = "Graphics.Capture.V4L2.Device.closeDevice"
        closeFn :: Fd -> IO ()
        closeFn fileDesc = 
          void $ throwErrnoIfMinus1 errorString (c'v4l2_close (fromIntegral fileDesc)) 
-
-  startCapture = startV4L2Capture
-  stopCapture  = stopV4L2Capture
-
 
 startV4L2Capture :: Device O -> (Vector Word8 -> IO ()) -> IO (Device S)
 startV4L2Capture (Opened fd path) f = 
