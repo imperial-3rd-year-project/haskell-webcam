@@ -216,7 +216,7 @@ startV4L2Capture (Opened fd path) f =
 stopV4L2Capture :: Device S -> IO (Device O)
 stopV4L2Capture (Streaming fd path streamThread closeSem) = killThread streamThread >> Sem.waitQSem closeSem >> return (Opened fd path)
 
-newV4L2CaptureDevice :: String -> Device U
+newV4L2CaptureDevice :: FilePath -> Device U
 newV4L2CaptureDevice = Unopened
 
 v4l2resolution :: (Int, Int)
