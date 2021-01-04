@@ -24,22 +24,24 @@ transform = V.map (255 -)
 
 demoWriteToDevice :: IO ()
 demoWriteToDevice = do
-  let deviceOutput = newV4L2Output v4l2resolution "/dev/video4"
-  let bufDevOutput = B.newBuffer 3 deviceOutput
+  let loopbackDevPath = "/dev/video9"
+  let deviceOutput    = newV4L2Output v4l2resolution loopbackDevPath
+  let bufDevOutput    = B.newBuffer 3 deviceOutput
   streamingDevOutput <- O.openDevice bufDevOutput
   -- Output device setup
   let fileOutput = F.newFileOutput 30 v4l2resolution "/tmp/video4.mp4"
   --bufferedOutput = B.newBuffer 3 fileOutput
+  let windowOutput = newOutputWindow v4l2resolution 30
 
   streamingFileOutput   <- O.openDevice fileOutput
-  streamingWindowOutput <- O.openDevice (newOutputWindow v4l2resolution 30)
+  streamingWindowOutput <- O.openDevice windowOutput
 
    
   -- Input Device setup
   let device = newV4L2CaptureDevice "/dev/video0"
   opened <- openDevice device
 
-  let input2 = newV4L2CaptureDevice "/dev/video4"
+  let input2 = newV4L2CaptureDevice loopbackDevPath
   inputOpened <- openDevice input2
 
 
