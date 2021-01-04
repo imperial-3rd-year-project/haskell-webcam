@@ -4,7 +4,7 @@ import Test.Hspec
 import Test.QuickCheck hiding (resize)
 
 import Data.Word (Word8)
-import Graphics.Display.ConversionUtils 
+import Graphics.Utils.ConversionUtils 
 
 import qualified Data.Vector.Storable as V
 
