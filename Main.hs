@@ -66,7 +66,7 @@ demoWriteToDevice = do
 main :: IO ()
 main = do
   let device = newV4L2CaptureDevice "/dev/video0"
-  let printResolution = (640, 480)
+  let printResolution = (840, 480)
   opened <- openDevice device
   let displayOutput = newOutputWindow printResolution 30
   let bufDisplayOutput = B.newBuffer 3 displayOutput
@@ -78,7 +78,7 @@ main = do
 
   streamingCamera <- startCapture opened 
     $ \v -> O.writeFrame streamingWindowOutput (resize offset v4l2resolution printResolution v) 
-        >> O.writeFrame streamingFileOutput v
+        >> O.writeFrame streamingFileOutput (resize offset v4l2resolution printResolution v)
 
   threadDelay 1500000
 
