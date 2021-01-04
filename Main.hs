@@ -8,7 +8,7 @@ import Graphics.Display.V4L2.Device (newV4L2Output)
 import Graphics.Utils.ConversionUtils (centredOffset, resize)
 import qualified Data.Vector.Storable as V
 import qualified Graphics.Display.Class as O
-import qualified Graphics.Display.FFmpeg.FileOutput as O
+import qualified Graphics.Display.FFmpeg.FileOutput as F
 import qualified Graphics.Display.DisplayBuffer as B
 
 import Data.Word (Word8)
@@ -28,8 +28,8 @@ demoWriteToDevice = do
   let bufDevOutput = B.newBuffer 3 deviceOutput
   streamingDevOutput <- O.openDevice bufDevOutput
   -- Output device setup
-  let fileOutput = O.newFileOutput 30 v4l2resolution "/tmp/video4.mp4"
-      --bufferedOutput = B.newBuffer 3 fileOutput
+  let fileOutput = F.newFileOutput 30 v4l2resolution "/tmp/video4.mp4"
+  --bufferedOutput = B.newBuffer 3 fileOutput
 
   streamingFileOutput   <- O.openDevice fileOutput
   streamingWindowOutput <- O.openDevice (newOutputWindow v4l2resolution 30)
@@ -66,23 +66,24 @@ demoWriteToDevice = do
 main :: IO ()
 main = do
   let device = newV4L2CaptureDevice "/dev/video0"
-  let printResolution = (800, 800)
+  let printResolution = (640, 480)
   opened <- openDevice device
   let displayOutput = newOutputWindow printResolution 30
   let bufDisplayOutput = B.newBuffer 3 displayOutput
-  -- let fileOutput = O.Unopened 30 printResolution "/tmp/video4.mp4"
-  -- streamingFileOutput <- O.openDevice fileOutput
+  let fileOutput = F.newFileOutput 30 printResolution "/tmp/video4.mp4"
+  streamingFileOutput <- O.openDevice fileOutput
   streamingWindowOutput <- O.openDevice bufDisplayOutput
 
   let offset = centredOffset v4l2resolution printResolution
 
   streamingCamera <- startCapture opened 
-    $ \v -> O.writeFrame streamingWindowOutput (resize offset v4l2resolution printResolution v)
+    $ \v -> O.writeFrame streamingWindowOutput (resize offset v4l2resolution printResolution v) 
+        >> O.writeFrame streamingFileOutput v
 
-  threadDelay 150000000
+  threadDelay 1500000
 
   cameraOpened <- stopCapture streamingCamera
-  --O.closeDevice streamingFileOutput
+  O.closeDevice streamingFileOutput
   closeDevice cameraOpened
 
   exitSuccess
