@@ -13,7 +13,7 @@ import Bindings.Posix.Fcntl (c'O_RDWR)
 import Data.Vector.Storable (unsafeToForeignPtr0)
 import Graphics.Display.Class 
 import Graphics.Utils.ConversionUtils (centredOffset, resize)
-import Graphics.Utils.Types ()
+import Graphics.Utils.Types (Resolution)
 import Graphics.Utils.V4L2.Device
 import Foreign.ForeignPtr (withForeignPtr)
 import Foreign.Marshal.Alloc (alloca)
@@ -25,8 +25,8 @@ import System.Posix.Types (Fd)
 
 data DeviceOutput a where
   -- FilePath to v4l2loopback device
-  Unopened  :: (Int, Int) -> FilePath       -> DeviceOutput U 
-  Streaming :: (Int, Int) -> Fd -> FilePath -> DeviceOutput S
+  Unopened  :: Resolution -> FilePath -> DeviceOutput U
+  Streaming :: Resolution -> FilePath -> Fd -> DeviceOutput S
 
 deriving instance Show (DeviceOutput a)
 
@@ -35,7 +35,7 @@ instance VideoOutput DeviceOutput where
   openDevice (Unopened res path) = do
     fd <- v4l2_open path c'O_RDWR errorString 
     setFormat fd
-    return $ Streaming res fd path
+    return $ Streaming res path fd
     where 
       errorString =  "Graphics.Display.V4L2.openDevice"
       setFormat :: Fd -> IO ()
@@ -58,10 +58,11 @@ instance VideoOutput DeviceOutput where
    
          pokeByteOff fmtPtr 8 pixelFormat
    
-         v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr "Graphics.Capture.V4L2.DeviceOutput.open: S_FMT"
+         let errString = "Graphics.Capture.V4L2.DeviceOutput.open: S_FMT"
+         v4l2_ioctl fd c'VIDIOC_S_FMT fmtPtr errString
          return ()
            
-  writeFrame (Streaming res fd _) img = do
+  writeFrame (Streaming res _ fd) img = do
     let    offset      = centredOffset res outputResolution
     let    img'        = resize offset res outputResolution img
     let    (fptr, len) = unsafeToForeignPtr0 img'
